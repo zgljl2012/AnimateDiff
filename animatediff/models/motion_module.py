@@ -8,10 +8,13 @@ from torch import nn
 import torchvision
 
 from diffusers.configuration_utils import ConfigMixin, register_to_config
-from diffusers.modeling_utils import ModelMixin
+from diffusers import ModelMixin
 from diffusers.utils import BaseOutput
 from diffusers.utils.import_utils import is_xformers_available
-from diffusers.models.attention import CrossAttention, FeedForward
+from diffusers.models.attention import FeedForward
+
+from animatediff.models.cross_attention import CrossAttention
+
 
 from einops import rearrange, repeat
 import math
@@ -290,7 +293,9 @@ class VersatileAttention(CrossAttention):
 
         query = self.to_q(hidden_states)
         dim = query.shape[-1]
+        # https://github.com/adobe-research/custom-diffusion/issues/23#issuecomment-1870217116
         query = self.reshape_heads_to_batch_dim(query)
+        # query = self.head_to_batch_dim(query)
 
         if self.added_kv_proj_dim is not None:
             raise NotImplementedError
@@ -307,7 +312,7 @@ class VersatileAttention(CrossAttention):
                 target_length = query.shape[1]
                 attention_mask = F.pad(attention_mask, (0, target_length), value=0.0)
                 attention_mask = attention_mask.repeat_interleave(self.heads, dim=0)
-
+        # TODO 确定以下的逻辑
         # attention, what we cannot get enough of
         if self._use_memory_efficient_attention_xformers:
             hidden_states = self._memory_efficient_attention_xformers(query, key, value, attention_mask)
